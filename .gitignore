@@ -1,0 +1,10 @@
+# RStudio files
+.RData
+.Rhistory
+.Rprofile
+
+# lesson files and data files
+ngh_*
+L2
+L2/*
+
