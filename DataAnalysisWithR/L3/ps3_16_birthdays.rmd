@@ -1,0 +1,109 @@
+Problem Set 3 - Facebook Friends
+========================================================
+
+This assignment is the last part of problem set 3 of the Udacity course *Data Analysis with R* lesson 3: *Explore One Variable*. This is a small task involving facebook friends' birthdays dataset.
+
+## Dataset: Facebook Friends Birthdays
+
+### Data Wrangling
+
+```{r message=FALSE}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+
+bdays <- read.csv('birthdaysExample.csv')
+str(bdays)
+head(bdays)
+
+bdays <- bdays %>% mutate(
+  year = year(mdy(dates)),
+  month = month(mdy(dates), label=TRUE), 
+  n.month= month(mdy(dates)), 
+  day = day(mdy(dates)), 
+  wday = wday(mdy(dates), label=TRUE))
+
+str(bdays)
+head(bdays)
+```
+
+***
+
+#### How many people share your birthday?
+```{r}
+# May 4th
+bdays %>% 
+  filter(day==4 & n.month==5) %>% 
+  nrow() 
+```
+
+***
+
+#### How many birthdays are there in each month? Which month contains the most birthdays?
+```{r}
+bdays %>% 
+  group_by(month) %>% 
+  summarise(n=n()) %>% 
+  arrange(desc(n))
+```
+
+***
+
+#### Which day has the most birthdays?
+```{r}
+bdays %>% 
+  group_by(day) %>%
+  summarise(n=n()) %>% 
+  arrange(desc(n)) %>% 
+  head()
+```
+
+***
+
+#### Which day of the year has the most birthdays?
+```{r}
+bdays %>% 
+  group_by(dates) %>% 
+  summarise(day=first(day), month = first(month), n=n()) %>% arrange(desc(n))  %>% 
+  select(day,month,n) %>% 
+  head()
+```
+
+***
+
+#### Which weekday has the most birthdays?
+```{r}
+bdays %>% 
+  group_by(wday) %>% 
+  summarise(n=n()) %>% 
+  arrange(desc(n))
+```
+
+***
+
+#### Do you have at least 365 friends that have birthdays on everyday of the year?
+```{r fig.width=10}
+qplot(x = day, data = bdays,binwidth = 1) + 
+  scale_x_discrete(1:31) +
+  facet_wrap(~month, ncol = 3)
+```
+
+By looking at the plot of the day distribution per month, no. Example: May, 3th...
+Confirmation:
+```{r}
+bdays %>% 
+  filter(day==3 & n.month==5) %>% 
+  nrow() 
+```
+
+Number of days with no birthdays:
+```{r}
+365 - bdays %>% 
+  group_by(month,day) %>% 
+  summarise(n = n())  %>% 
+  nrow()
+```
+
+***
+Sara Carvalho
+19-03-2015
