@@ -1,0 +1,266 @@
+Problem Set 3 
+========================================================
+
+This assignment is the first part of problem set 3 of the Udacity course *Data Analysis with R* lesson 3: *Explore One Variable*. This part of the problem set consists in a set of questions/tasks answered below.
+
+### Diamonds
+Load the diamonds dataset.
+
+```{r}
+library(ggplot2)
+data(diamonds)
+?diamonds
+
+str(diamonds)
+```
+
+
+#### How many observations are in the dataset?
+53940
+
+#### How many variables ?
+10
+
+#### How many ordered factors are in the dataset?
+3
+
+#### What letter represents the best color for a diamond?
+D 
+
+***
+
+### Price Histogram
+Create a histogram of the price of all the diamonds in the diamond data set.
+
+```{r fig.width= 10}
+qplot(x = price, data = diamonds, binwidth = 500,
+      color = I('black'), fill = I('light blue')) + 
+  scale_x_continuous(breaks = seq(0,19000, 1000))
+```
+
+#### Describe the shape and center of the price distribution.
+The distribution is right-skewed and presents a long tail. In such a distribution, the *median* is often a better representation of the center price of the diamonds then the *mean*. 
+
+```{r}
+summary(diamonds$price)
+```
+
+***
+
+### Diamonds Count
+
+#### How many diamonds cost less than $500?
+```{r}
+dim(subset(diamonds, price < 500))[1]
+```
+
+#### How many diamonds cost less than $250?
+```{r}
+dim(subset(diamonds, price < 250))[1]
+```
+
+#### How many diamonds cost $15,000 or more?
+```{r}
+dim(subset(diamonds, price >= 15000))[1]
+```
+
+***
+
+### Cheaper Diamonds
+Explore the largest peak in the price histogram you created earlier.
+Try limiting the x-axis, altering the bin width, and setting different breaks on the x-axis.
+
+```{r}
+qplot(x = price, data = diamonds, binwidth = 25,
+      color = I('black'), fill = I('grey')) +
+  scale_x_continuous(breaks=seq(0,5000, 500), limits=c(0,5000))
+```
+
+The largest peak seems to be in the [300, 1500] interval.
+
+```{r fig.width= 9, fig.height=12}
+library(gridExtra)
+
+p1 <- qplot(x = price, data = diamonds, binwidth = 5,
+      color = I('black'), fill = I('grey'),
+      main = "Price Histogram (binwidth = 5)") +
+  scale_x_continuous(breaks=seq(325,1500, 200)) + 
+  coord_cartesian(xlim = c(200,1500))
+
+p2 <- qplot(x = price, data = diamonds, binwidth = 25,
+      color = I('black'), fill = I('grey'),
+      main = "Price Histogram (binwidth = 25)") +
+  scale_x_continuous(breaks=seq(325,1500, 200)) + 
+  coord_cartesian(xlim = c(200,1500))
+
+p3 <- qplot(x = price, data = diamonds, binwidth = 50,
+      color = I('black'), fill = I('grey'),
+      main = "Price Histogram (binwidth = 50)") +
+  scale_x_continuous(breaks=seq(325,1500, 200)) + 
+  coord_cartesian(xlim = c(200,1500))
+
+grid.arrange(p1,p2,p3)
+```
+
+Smaller bin-widths of 5, for example, result in a very "noisy" histogram that is difficult to read. 
+Bin-widths of 25 and 50 are a better choice for a smoother and easy to read histogram.
+
+```{r}
+summary(subset(diamonds$price, diamonds$price > 325 & diamonds$price <=1500))
+```
+
+No diamonds cost 1500.  
+
+***
+
+### Price by Cut
+
+#### Histograms
+
+```{r}
+qplot(x = price, data = diamonds, binwidth = 50)+
+  facet_wrap(~cut) +
+  coord_cartesian(xlim = c(300, 2000))
+```
+
+#### Which cut has the highest priced diamond ?
+Premium
+```{r}
+by(diamonds$price, diamonds$cut, max)
+```
+
+#### Which cut has the lowest priced diamond ? 
+Premium, Ideal
+```{r}
+by(diamonds$price, diamonds$cut, min)
+```
+
+#### Which cut has the lowest median price ? 
+Ideal
+```{r}
+by(diamonds$price, diamonds$cut, median)
+```
+
+Note: the summary presents different results for some of these values. Example: max.
+```{r}
+by(diamonds$price, diamonds$cut, summary)
+```
+
+***
+
+###  Scales and Multiple Histograms
+
+Looking at the summary, the distributions should be somewhat similar, but the previous histograms created don't show that.  
+Make scales free for histograms with *facet_warp*.
+
+```{r}
+qplot(x = price, data = diamonds, binwidth=250) + 
+  facet_wrap(~cut, scales = 'free')
+```
+
+***
+
+### Price per Carat by Cut
+Create a histogram of price per carat and facet it by cut. Adjust the bin width and transform the scale of the x-axis using log10.
+
+```{r}
+qplot(x = price/carat, data = diamonds, binwidth = .05,
+      fill=..count..) +
+  facet_wrap(~cut, scales='free_y') +
+  scale_x_log10()
+```
+
+***
+
+### Price Box Plots
+Investigate the price of diamonds using box plots, numerical summaries, and one of the following categorical variables: cut, clarity, or color. 
+
+#### Color
+```{r}
+by(diamonds$price, diamonds$color, summary)
+
+qplot(x = color, y = price, data = diamonds,
+      geom = 'boxplot')
+```
+
+The prices seem to be higher for the J (worst) color. =/  
+Perhaps a price/carat analysis would be more accurate.
+
+***
+
+### Interquartile Range - IQR
+
+```{r}
+by(diamonds$price, diamonds$color, summary)
+```
+
+#### What is the price range for the middle 50% of diamonds with color D ?
+911 -  4214
+
+#### What is the price range for the middle 50% of diamonds with color J ?
+1860 - 7695
+
+#### What is the IQR for diamonds with the best color?
+```{r}
+IQR(subset(diamonds, color == 'D')$price)
+```
+
+#### What is the IQR for diamonds with the worst color?
+```{r}
+IQR(subset(diamonds, color == 'J')$price)
+```
+
+***
+
+### Price per Carat Box Plots by Color
+```{r}
+by(diamonds$price/diamonds$carat, diamonds$color, summary)
+
+qplot(x = color, y = price/carat, data = diamonds,
+      geom = 'boxplot') + 
+  coord_cartesian(ylim=c(0,10000))
+
+qplot(x = color, y = price/carat, data = diamonds,
+      geom = 'boxplot')
+```
+
+The prices/carat don't show a significant difference by color. The better colors have, however, more and higher outliers.
+
+#### Subset data for the middle 50% diamonds carats:
+```{r}
+summary(diamonds$carat)
+subset.diamonds <- subset(diamonds, carat > 0.4 & carat < 1.05)
+
+qplot(x = color, y = price/carat, data = subset.diamonds,
+    geom = 'boxplot') + 
+  coord_cartesian(ylim=c(1500,5000))
+```
+
+Looking only at the diamonds in the middle 50% carats, the difference in price by color is more visible.
+
+***
+
+### Carat Frequency Polygon
+Investigate the weight of the diamonds (carat) using a frequency polygon. Use different bin widths to see how the frequency polygon changes.  
+What carat size has a count greater then 2000 ?
+
+```{r fig.width=10}
+qplot(x = carat, data = diamonds, geom = 'freqpoly', binwidth = 0.1,
+      main = "Carat Frequency polygon ( binwidth = 0.1)") +
+  scale_x_continuous(breaks = seq(0,5,.1)) +
+geom_abline(intercept = 2000, slope = 0, color = 'red', size = 1, lty = 'dashed')
+
+qplot(x = carat, data = diamonds, geom = 'freqpoly', binwidth = 0.01,
+      main = "Carat Frequency polygon ( binwidth = 0.01)") +
+  scale_x_continuous(breaks = seq(1,1.1,.01)) +
+  coord_cartesian(xlim=c(1,1.1))+
+geom_abline(intercept = 2000, slope = 0, color = 'red', size = 1, lty = 'dashed')
+```
+
+#### What carat size has a count greater then 2000 ?
+0.3, 1.01 (in exercise)
+
+***
+
+Sara Carvalho  
+19-02-2015
