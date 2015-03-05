@@ -1,0 +1,195 @@
+Problem Set 4
+========================================================
+
+This assignment is the first part of problem set 4 of the Udacity course *Data Analysis with R* lesson 4: *Explore Two Variables*. This part of the problem set consists in a set of questions/tasks answered below.
+
+### Diamonds
+Load the diamonds dataset
+
+```{r}
+library(ggplot2)
+data(diamonds)
+str(diamonds)
+```
+
+***
+
+### price vs. x (length in mm)
+```{r}
+ggplot(aes(x = x, y = price), data = diamonds) +
+  geom_point()
+```
+
+#### Observations
+Most of the diamonds have between 3 and 9 mm. The price increases rapidly with the value of x, in what seems to be a exponential relationship. There are some outliers of length 0, probably not the real value of length.
+
+***
+
+### Correlations
+
+#### What is the correlation between price and x?
+```{r}
+cor.test(diamonds$x, diamonds$price)
+```
+0.88
+
+#### What is the correlation between price and y?
+```{r}
+cor.test(diamonds$y, diamonds$price)
+```
+0.87
+
+#### What is the correlation between price and z?
+```{r}
+cor.test(diamonds$z, diamonds$price)
+```
+0.86
+
+***
+
+###  price vs. depth (total depth percentage)
+```{r}
+ggplot(aes(x = depth , y = price), data = diamonds) + 
+  geom_point()
+```
+
+
+####  Adjustments - price vs. depth
+Plot with adjusted scale, based on the summary statistics, and points with alpha channel of 1/100.
+```{r}
+summary(diamonds$depth)
+
+ggplot(aes(x = depth , y = price), data = diamonds) + 
+  geom_point(alpha = 1/100) +
+  scale_x_continuous(breaks = seq(43,80, 2))
+```
+
+#### Based on the scatter plot of depth vs. price, most diamonds are between what values of depth?
+Between 59 - 64.
+
+#### Correlation - price vs. depth
+```{r}
+cor.test(diamonds$depth, diamonds$price)
+```
+-0.01  
+The value is close to 0 which indicates an extremely weak / nonexistent relationship between the two values.
+
+#### Based on the correlation coefficient would you use depth to predict the price of diamonds?
+No, the depth doesn't describe the price in a way that we can predict it's price based on a function (linear, exponential, etc..).
+
+***
+
+### price vs. carat
+Create a scatter plot of price vs carat and omit the top 1% of price and carat values.
+
+```{r}
+ggplot(aes(x = carat, y = price), data = diamonds) +
+  geom_point(alpha = 1/10) +
+  xlim(0, quantile(diamonds$carat, 0.99)) +
+  ylim(0, quantile(diamonds$price, 0.99))
+```
+
+***
+
+### price vs. volume
+Create a scatter plot of price vs. volume (x * y * z). This is a very rough approximation for a diamond's volume.  
+Create a new variable for volume in the diamonds data frame.
+
+```{r}
+diamonds$volume <- diamonds$x * diamonds$y * diamonds$z
+
+ggplot(aes(x = volume, y = price), data = diamonds) +
+  geom_point()
+```
+
+#### Observations
+Volume is mostly between 0+ and 500. The majority of prices seem to increase in an exponential way with volume.  
+There are some outliers such as diamonds with 0 volume and diamonds with nearly 4000 in volume.
+```{r warning=FALSE}
+suppressMessages(library(plyr))
+count(diamonds$volume == 0)
+suppressMessages(detach("package:plyr", unload=TRUE))
+```
+
+***
+
+### Correlations on Subsets
+What's the correlation of price and volume?  
+Exclude diamonds that have a volume of 0 or that are greater than or equal to 800.
+```{r}
+with(subset(diamonds, volume > 0 & volume < 800), cor.test(price, volume))
+```
+0.92  
+This value indicates a strong positive relationship between the two values.
+
+***
+
+### Adjustments - price vs. volume
+Subset the data to exclude diamonds with a volume greater than or equal to 800. Also, exclude diamonds with a volume of 0. Adjust the transparency of the points and add a linear model to the plot.
+```{r}
+ggplot(aes(x = volume, y = price), 
+       data = subset(diamonds, volume > 0 & volume < 800)) +
+  geom_point(alpha = 1/5, color = 'orange') +
+  geom_smooth(method = 'lm', color = 'red') +
+  geom_smooth(method = 'lm', color = 'green', formula = y ~ poly(x,2, raw = TRUE)) +
+  geom_smooth(method = 'lm', color = 'blue', formula = y ~ poly(x,3, raw = TRUE)) +
+  geom_smooth(method = 'lm', color = 'black', formula = y ~poly(x,4,raw=TRUE)) + 
+  coord_cartesian(xlim = c(0,600), ylim=c(0,20000))
+```
+
+Red, linear model, fits the data reasonably well and is the simplest method in the graph, therefore not very expensive to use.  
+The green model, $x^{2}$, blue model, $x^{3}$, and black model, $x^{4}$, seem to adapt, respectively, more accurately to the data.
+
+***
+
+### Mean Price by Clarity
+Use the function *summarise* from the *dplyr* package to create a new data frame containing info on diamonds by clarity.  
+Add the variables *mean_price*, *median_price*, *min_price*, *max_price* and *n*.
+```{r}
+suppressMessages(library(dplyr))
+diamonds.by.clarity <- diamonds %>%
+  group_by(clarity) %>%
+  summarise(min_price = min(price),
+            median_price = median(as.numeric(price)),
+            mean_price = mean(price),
+            max_price = max(price),
+            n = n()) 
+
+diamonds.by.clarity
+```
+
+***
+
+###  Bar Charts of Mean Price
+We’ve created summary data frames with the mean price by clarity and color. You can run the code in R to verify what data is in the variables *diamonds_mp_by_clarity* and *diamonds_mp_by_color*.  
+Your task is to write additional code to create two bar plots on one output image using the *grid.arrange()* function from the package *gridExtra*.
+
+```{r}
+diamonds_by_clarity <- group_by(diamonds, clarity)
+diamonds_mp_by_clarity <- summarise(diamonds_by_clarity, mean_price = mean(price))
+
+diamonds_by_color <- group_by(diamonds, color)
+diamonds_mp_by_color <- summarise(diamonds_by_color, mean_price = mean(price))
+
+suppressMessages(library(gridExtra))
+
+p1 <- ggplot(aes(x = clarity, y = mean_price), data = diamonds_mp_by_clarity) +
+  geom_bar(stat = 'identity', fill  = 'orange') +
+  scale_y_continuous(breaks=seq(0,5200, 500)) +
+  coord_flip() 
+
+p2 <- ggplot(aes(x = color, y = mean_price), data = diamonds_mp_by_color) +
+  geom_bar(stat = 'identity', fill = 'light blue') +
+  scale_y_continuous(breaks=seq(0,5200, 500)) +
+  coord_flip()
+  
+grid.arrange(p1,p2)
+```
+
+#### Observations
+Higher mean prices for color J and for clarity SI2 (both over 5000). Lower mean prices for clarity VVS1 (around 2500) and for color E and D (around 3000).  
+Mean prices for color look odd since the prices are decreasing as the color type is improving. This can also be observed between some clarity levels.
+
+***
+Sara Carvalho
+05-03-2015
