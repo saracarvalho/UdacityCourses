@@ -1,0 +1,191 @@
+Problem Set 3 - Gapminder
+========================================================
+
+## Introduction
+
+This assignment is part of problem set 4 of the "Data Analysis with R" Udacity course's lesson 4: "Explore Two Variable".  
+The task is to go back to the Gapminder dataset used in problem set 3 and study it with tools from lesson 4.
+
+### The Dataset
+
+The dataset chosen from Gapminder is a subset of a larger dataset of "the average number of years of school attended by all people in the age and gender group specified, including primary, secondary and tertiary education". The subset concerned only women between the age of 25-34. The source of the data is the Institute for Health Metrics and Evaluation and it was uploaded in 2010.
+
+[Gapminder - Mean years in school (women 25-34)](https://spreadsheets.google.com/spreadsheet/pub?key=0ArfEDsV3bBwCdC1MYzAtY2xPQ2xOR1lMeGhYSWlpR0E&gid=0)
+
+***
+
+## Dataset Investigation and Observations
+This chapter shows the tools and code used in the investigation of the dataset, as well as the observations and notes taken along the study.
+
+### Data Wrangling 
+From lesson 3:
+
+```{r tidy=TRUE}
+school.years <- read.csv('Years.in.school.women.25-34.csv', header = TRUE, check.names = FALSE)
+library(tidyr)
+suppressMessages(library(dplyr))
+suppressMessages(library(ggplot2))
+
+names(school.years)[1] <- "country"
+gather.school <- gather(data = school.years, key = "year", 
+                        value ="mean.num.years", 2:length(school.years))
+```
+
+***
+
+### Scatter Plot
+Scatter plot of the data with the values for median and quantiles 10% and 90%, in blue.
+```{r}
+gather.school <- 
+  gather.school %>%
+  mutate(year.as.numeric = as.numeric(year))
+
+ggplot(aes(x = 1969 + year.as.numeric, y = mean.num.years), data = gather.school) +
+  geom_point(alpha = 1/2, position = position_jitter(h=0), color = 'grey') +
+  geom_line(stat = 'summary', fun.y = median, color = 'blue') +
+  geom_line(stat = 'summary', fun.y = quantile, probs = .9 , color = 'blue', linetype = 2) +
+  geom_line(stat = 'summary', fun.y = quantile, probs = .1 , color = 'blue', linetype = 2) +
+  ylab("Mean number of years in School") +
+  xlab("Year")
+```
+
+***
+
+### Portugal and neighbors 
+```{r}
+ggplot(aes(x = 1969 + year.as.numeric, y = mean.num.years), data = gather.school) +
+  geom_point(alpha = 1/5, position = position_jitter(h=0), color = 'grey') +
+  geom_line(stat = 'summary', fun.y = mean) +
+  geom_line(stat = 'summary', fun.y = quantile, probs = .75 , linetype = 2) +
+  geom_line(stat = 'summary', fun.y = quantile, probs = .25 , linetype = 2) +
+  geom_line(data = subset(gather.school, country %in% c("Portugal", "Spain", "France")), aes(color = country)) +
+  ylab("Mean number of years in School") +
+  xlab("Year")
+```
+
+Looking at these result one can see that Portugal has been close to the median values throughout the years, while France has been closer to values in the 3rd quartile. Spain has the highest increase of the 3 countries, having the same values as Portugal in 1970 and ending 2009 with values that are closer to France than Portugal.
+
+***
+
+### Countries with largest and smallest improvement
+
+#### Countries with the largest improvement
+Now we take a look at the countries which had the highest increase in mean number of years spent in school between the year of 1970 and 2009 (from problem set 3).
+```{r}
+ggplot(aes(x = 1969 + year.as.numeric, y = mean.num.years), data = gather.school) +
+  geom_point(alpha = 1/5, position = position_jitter(h=0), color = 'grey') +
+  geom_line(stat = 'summary', fun.y = median) +
+  geom_line(stat = 'summary', fun.y = quantile, probs = .75 , linetype = 2) +
+  geom_line(stat = 'summary', fun.y = quantile, probs = .25 , linetype = 2) +
+  geom_line(data = subset(gather.school, country %in% 
+      c("Taiwan", "Jordan", "United Arab Emirates", "Bahrain","Malaysia")), aes(color = country)) +
+  ylab("Mean number of years in School") +
+  xlab("Year")
+```
+
+#### Countries with the smallest improvement
+Next we take a look at the countries which had the smallest increase in mean number of years spent in school between the year of 1970 and 2009 (from problem set 3).
+```{r}
+ggplot(aes(x = 1969 + year.as.numeric, y = mean.num.years), data = gather.school) +
+  geom_point(alpha = 1/5, position = position_jitter(h=0), color = 'grey') +
+  geom_line(stat = 'summary', fun.y = median) +
+  geom_line(stat = 'summary', fun.y = quantile, probs = .75 , linetype = 2) +
+  geom_line(stat = 'summary', fun.y = quantile, probs = .25 , linetype = 2) +
+  geom_line(stat = 'summary', fun.y = quantile, probs = .1 , linetype = 2, color = 'red') +
+  geom_line(data = subset(gather.school, country %in% 
+      c("Afghanistan", "Mali", "Chad", "Niger","Burkina Faso")), aes(color = country)) +
+  ylab("Mean number of years in School") +
+  xlab("Year")
+```
+
+#### Observations
+Regarding the countries with the largest improvement, we can observe that most of them were below or on the median in 1970 and, then, in 2009 the values are around the 3rd quartile.  
+As for the countries with the lowest improvement, we can observe that all of them are below the 10% quantile (red line), both in 1970 and 2009.
+
+***
+
+### Continent and Region 
+Let's add some more geographic information: region and continent. We used the _countrycode_ dataset as well as a smaller dataset with names of countries whose name changed or did not match in the original dataset.
+```{r message=FALSE, warning=FALSE}
+#install.packages("countrycode")
+library(countrycode)
+data(countrycode_data)
+str(countrycode_data)
+
+## Countries with different names in the two datasets and their match
+country.name.match <- read.csv("country.names.match.gapminder.codes.csv")
+## Countries with the same name in both datasets
+countries.with.matching.names <- gather.school %>% 
+                                  anti_join(country.name.match, by="country") %>% 
+                                  select(country) %>% 
+                                  group_by(country) %>% 
+                                  summarise()
+
+## Expand the dataset to include the match between countries with the same name
+country.name.match <- country.name.match %>% 
+                        bind_rows(data.frame(countries.with.matching.names, countries.with.matching.names) %>% 
+                        setNames(c("country", "country.name")))
+
+## Add region and continent to the original dataset
+gather.school <- gather.school %>% 
+                  left_join(country.name.match , by="country") %>% 
+                  left_join(countrycode_data) %>% 
+                  select(country, year, mean.num.years, year.as.numeric, continent,region)
+gather.school$country <- as.factor(gather.school$country)
+gather.school$continent <- as.factor(gather.school$continent)
+gather.school$region <- as.factor(gather.school$region)
+```
+
+***
+
+#### Values per continent.
+```{r}
+gather.school %>%
+  group_by(continent) %>%
+  summarise(mean = mean(mean.num.years), median = median(mean.num.years), n = n()) %>%
+  arrange(desc(n))
+```
+
+Next, we have a scatter plot of the data identified by continent, as well as the median of the mean number of years in school, per continent by year.
+
+```{r}
+ggplot(aes(x = 1969 + year.as.numeric, y = mean.num.years), data = gather.school) +
+  geom_point(alpha = 1/6,position = position_jitter(h=0), aes(color = continent)) +
+  geom_line(stat = 'summary', fun.y = median, data = subset(gather.school %>% group_by(continent)), aes(color = continent))+
+  xlab("Years") +
+  ylab("Median Number of years in school")
+```
+
+***
+
+#### Values per region.
+```{r}
+gather.school %>%
+  group_by(region) %>%
+  summarise(mean = mean(mean.num.years), median = median(mean.num.years), n = n()) %>%
+  arrange(desc(median)) 
+```
+
+Plot of the Medians:
+```{r fig.width=10,fig.height = 10}
+ggplot(aes(x = 1969 + year.as.numeric, y = mean.num.years), data = gather.school) +
+  geom_line(stat = 'summary', fun.y = median, aes(color = region)) +
+  xlab("Years") +
+  ylab("Median Number of years in school") +
+  theme(legend.position = "top") + 
+  guides(color=guide_legend(nrow = 4))
+```
+
+***
+
+## Conclusions
+With this study we are able to observe:
+
+1. The values for the mean years spent in school throughout the years.
+2. The improvement and evolution of some countries.
+3. The countries with the lowest values in 1970 were not able to improve their results in a significant way.
+4. The continents relative position remains the same in 2009 as is was in 1970, with Europe having the highest median in mean years spent in school, and Africa with the lowest value.
+5. The data contextualized by region gives us a more rich and detailed view, where we can see that regions have experienced increase in these values at very different rates.
+
+***
+Sara Carvalho 05-05-2015
