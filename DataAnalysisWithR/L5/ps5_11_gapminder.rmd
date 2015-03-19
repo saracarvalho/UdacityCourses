@@ -1,0 +1,385 @@
+Problem Set 5 - Gapminder
+========================================================
+
+## Introduction
+
+This assignment is part of problem set 5 of the *Data Analysis with R* Udacity course's lesson 5: *Explore Many Variables*.  
+The task is to choose from the datasets available in the Gapminder website and, making use of the techniques from lesson 5, create 2-5 plot to study the data.
+
+### The Dataset
+
+For this study, two dataset were chosen from the Gapminder website.  
+The first is a different subset of the same dataset used in problems sets 3 and 4 about *the average number of years of school attended by all people in the age and gender group specified, including primary, secondary and tertiary education*. This time the subset concerns women of reproductive age (15-44). The source of the data is the Institute for Health Metrics and Evaluation and it was uploaded in 2010.  
+The second is a dataset of total fertility rate. That is, *the number of children that would be born to each woman with prevailing age-specific fertility rates*. This data was uploaded to the Gapminder website in 2009 and was revised in the 2 years that followed, with information from several sources. Theses sources are listed in the link below.
+
+[Gapminder - Mean years in school (women 25-34)](https://spreadsheets.google.com/spreadsheet/pub?key=0ArfEDsV3bBwCdC1MYzAtY2xPQ2xOR1lMeGhYSWlpR0E&gid=0)
+
+[Gapminder - Total Fertility Rate](https://spreadsheets.google.com/spreadsheet/pub?key=0ArfEDsV3bBwCdEdkaE5ZR1RHdHVud3prS0o5YVJoc0E&gid=1)
+
+***
+## Dataset Investigation and Observations
+This chapter shows the tools and code used in the investigation of the dataset, as well as the observations and notes taken along the study.
+
+### Data Wrangling
+
+Load the raw two datasets:
+```{r}
+school.years <- read.csv('Years.in.school.women.15.44.csv', header = TRUE, check.names = FALSE)
+names(school.years)[1] <- "country"
+
+fertility.indicator <- read.csv('indicator.total.fertility.csv', header = TRUE, check.names = FALSE)
+names(fertility.indicator)[1] <- "country"
+
+```
+
+Then, change the datasets to a more suitable structure.
+
+```{r warning=FALSE}
+library(tidyr)
+school.years.indicator <- gather(data = school.years, key = "year", value = "mean.num.years", 
+    2:length(school.years))
+
+fertility.indicator.narrow <- gather(data = fertility.indicator, key = "year", value = "total.fertility",
+                                     2:length(fertility.indicator))
+
+# remove unnecessary data
+rm(school.years)
+rm(fertility.indicator)
+
+```
+
+Structure of the two datasets at this point.
+```{r}
+str(school.years.indicator)
+str(fertility.indicator.narrow )
+```
+
+Next, join the fertility rate dataset to the mean years in school dataset. Before the left join, a column was added to rule out a possible mismatch in country names or year, as these are the variables we will be using to join the two datasets.
+```{r warning=FALSE}
+suppressMessages(library(dplyr))
+
+## Add column to rule out mismatch between country names in join
+fertility.indicator.narrow$miss.test <- 1
+
+## left join school year with fertility indicator
+sy.tf.indicator <- school.years.indicator %>%
+  left_join(fertility.indicator.narrow, by = c("country", "year"))
+
+## remove unnecessary data
+rm(school.years.indicator)
+rm(fertility.indicator.narrow)
+
+## test possible mismatch and delete column
+any(is.na(sy.tf.indicator$miss.test))
+sy.tf.indicator$miss.test <- NULL
+
+## how many values for fertility we are missing
+table(!is.na(sy.tf.indicator$total.fertility))
+```
+
+#### Add region and continent information
+Add information about region and continent to the dataset, as in problem set 4.
+
+```{r warning=FALSE}
+library(countrycode)
+data(countrycode_data)
+str(countrycode_data)
+
+## Countries with different names in the two datasets and their match
+country.name.match <- read.csv("country.names.match.gapminder.codes.csv")
+## Countries with the same name in both datasets
+countries.with.matching.names <- sy.tf.indicator%>% 
+                                  anti_join(country.name.match, by="country") %>% 
+                                  select(country) %>% 
+                                  group_by(country) %>% 
+                                  summarise()
+
+## Expand the dataset to include the match between countries with the same name
+country.name.match <- country.name.match %>% 
+                        bind_rows(data.frame(countries.with.matching.names, countries.with.matching.names) %>% 
+                        setNames(c("country", "country.name")))
+
+## Add region and continent to the original dataset
+sy.tf.indicator <- sy.tf.indicator %>% 
+                  left_join(country.name.match , by="country") %>% 
+                  left_join(countrycode_data) %>% 
+                  select(country, year, mean.num.years, total.fertility, continent, region)
+sy.tf.indicator$country <- as.factor(sy.tf.indicator$country)
+sy.tf.indicator$continent <- as.factor(sy.tf.indicator$continent)
+sy.tf.indicator$region <- as.factor(sy.tf.indicator$region)
+
+## remove unnecessary data
+rm(countrycode_data)
+rm(countries.with.matching.names)
+rm(country.name.match)
+```
+
+#### Add *year.as.numeric* and *decade* vars
+The *year.as.numeric* var is the *year* var but as a numeric value, instead of categorical. The *decade* is a categorical variable of the 10 year interval a year is in.
+
+```{r}
+## year as numeric 
+sy.tf.indicator <- 
+  sy.tf.indicator %>%
+  mutate(year.as.numeric = as.numeric(year))
+
+## decade
+sy.tf.indicator$decade <- as.factor(floor(as.numeric(sy.tf.indicator$year)/10) * 10)
+```
+
+***
+
+### Mean Years in School
+
+The metric *mean number of years in school* was the subject of previous problem sets and, although the subset is of a different size (previous concerned ages 25 to 34 only), the observations are very similar.
+
+***
+
+### Total Fertility Rate
+This was the metric added to this study compared to the previous ones. Let's study it first.
+
+```{r}
+suppressMessages(library(ggplot2))
+
+ggplot(aes(x = year, y = total.fertility), 
+       data = subset(sy.tf.indicator, !is.na(total.fertility))) +
+  geom_point(position = position_jitter(), alpha = 1/2) +
+  ylab("Fertility Rate") +
+  xlab("Year")
+
+```
+
+This is the evolution of the metric throughout the years. As is, the simple scatter plot is not very helpful. We can see some higher concentration of points for lower values of fertility, as well as, a concentration of points in higher values, but mostly in the first years.  
+
+#### Basic statistics
+
+```{r}
+summary(sy.tf.indicator$total.fertility)
+```
+
+#### Values by decade
+
+```{r}
+by(sy.tf.indicator$total.fertility,sy.tf.indicator$decade,summary)
+```
+The values have been decreasing throughout the decades.
+
+#### Values by Countries 
+
+Lowest mean value per country:
+
+```{r}
+sy.tf.indicator %>%
+  group_by(country) %>%
+  summarise(mean = mean(total.fertility)) %>%
+  arrange(mean)
+```
+
+Highest mean value per country:
+
+```{r}
+sy.tf.indicator %>%
+  group_by(country) %>%
+  summarise(mean = mean(total.fertility)) %>%
+  arrange(desc(mean))
+```
+
+#### Range
+
+The rage of values refers to the difference of values between 1970 and 2009.
+
+```{r}
+diff.1970.2009 <- sy.tf.indicator %>%
+  group_by(country) %>%
+  arrange(year) %>%
+  summarise(in.1970 = first(total.fertility), in.2009 = last(total.fertility)) %>%
+  mutate(diff = in.2009 - in.1970)
+
+table(diff.1970.2009$diff > 0)
+
+ggplot(aes(x = diff), data = diff.1970.2009) + 
+  geom_histogram(color = 'black', fill='light green', binwidth = .25) +
+  xlab("Difference values between 1970 and 2009")
+```
+
+With this indicator we can confirm the downwards tendency throughout the years, with only 6 countries increasing the value of fertility rate. Now, we look at these countries and also, the countries with the highest and lowest values of the difference.
+
+```{r}
+## Positive
+diff.1970.2009 %>%
+  arrange(desc(diff)) %>%
+  filter(diff > 0)
+
+## Lowest values
+diff.1970.2009 %>%
+  arrange(abs(diff))
+
+## Highest values
+diff.1970.2009 %>%
+  arrange(diff) %>%
+  head()
+
+```
+
+#### Mean Fertility Rate By Continent
+
+Finally, we look at the mean fertility rate per continent.
+
+```{r}
+ggplot(aes(x = year.as.numeric, y = total.fertility), 
+       data = subset(sy.tf.indicator, !is.na(total.fertility))) +
+  geom_line(stat = "summary", fun.y = mean, aes(color = continent)) +
+  ylab("Fertility Rate")+
+  xlab("Year")
+```
+
+In this plot, we can see that Europe has the lowest rate in the 70's and it's value is very distant from the other continents.  
+Then, until 2009, it's the continent with the smallest decrease, although it remains the lowest value. The other continents dropped the values in a considerable way, approaching Europe's values.  
+The continent with the highest mean value in fertility rate is Africa, during these 4 decades.
+
+***
+
+###  Fertility Rate vs. Year (and Decade)
+In the next plots we look at the values of fertility rate throughout the time. First, against the year, then we divide the values into decade intervals and, finally, facet those values per continent.
+
+```{r}
+ggplot(aes(x = year, y = total.fertility),
+       data = subset(sy.tf.indicator, !is.na(total.fertility))) +
+  geom_point(aes(color = mean.num.years), position = position_jitter()) +
+  scale_colour_continuous(name="Mean Number Years School") +
+  ylab("Fertility Rate")+
+  xlab("Year")
+
+ggplot(aes(x = decade, y = total.fertility),
+       data = subset(sy.tf.indicator, !is.na(total.fertility))) +
+  geom_point(aes(color = mean.num.years), position = position_jitter()) +
+  scale_colour_continuous(name="Mean Number Years School") +
+  ylab("Fertility Rate")+
+  xlab("Decade")
+
+ggplot(aes(x = decade, y = total.fertility),
+       data = subset(sy.tf.indicator, !is.na(total.fertility))) +
+  geom_point(aes(color = mean.num.years), position = position_jitter()) +
+  facet_wrap(~continent) +
+  scale_colour_continuous(name="Mean Number Years School") +
+  ylab("Fertility Rate")+
+  xlab("Decade")
+```
+
+***
+
+### Mean Number Years in School vs. Year (and Decade)
+The same exercise as in previous chapter, but with mean number of years in school values.
+
+```{r}
+ggplot(aes(x = year, y = mean.num.years),
+       data = subset(sy.tf.indicator, !is.na(total.fertility))) +
+  geom_point(aes(color = total.fertility), position = position_jitter()) +
+  scale_colour_gradientn(colours=c("firebrick", "orange"), name="Fertility Rate") +
+  ylab("Mean Number Years in School")+
+  xlab("Year")
+
+ggplot(aes(x = decade, y = mean.num.years),
+       data = subset(sy.tf.indicator, !is.na(total.fertility))) +
+  geom_point(aes(color = total.fertility), position = position_jitter()) +
+  scale_colour_gradientn(colours=c("firebrick", "orange"), name="Fertility Rate") +
+  ylab("Mean Number Years in School")+
+  xlab("Decade")
+
+ggplot(aes(x = decade, y = mean.num.years),
+       data = subset(sy.tf.indicator, !is.na(total.fertility))) +
+  geom_point(aes(color = total.fertility), position = position_jitter()) +
+  facet_wrap(~continent) +
+  scale_colour_gradientn(colours=c("firebrick", "orange"), name="Fertility Rate") +
+  ylab("Mean Number Years in School")+
+  xlab("Decade")
+```
+
+***
+
+### Fertility Rate vs. Mean Number Years in School
+Finally we take a look at fertility rate vs mean number of years. First, we try a simple scatter plot with a smooth line and, then, we add some color according to the year.
+
+```{r warning=FALSE, message=FALSE}
+ggplot(aes(x = mean.num.years, y = total.fertility), 
+       data =  subset(sy.tf.indicator, !is.na(total.fertility))) +
+  geom_point(color = 'firebrick', position = position_jitter()) +
+  geom_smooth() +
+  xlab("Fertility Rate")+
+  ylab("Mean Number Years in School")
+
+ggplot(aes(x = mean.num.years, y = total.fertility), 
+       data =  subset(sy.tf.indicator, !is.na(total.fertility))) +
+  geom_point(aes(color = year.as.numeric), position = position_jitter()) +
+  scale_color_gradient(low="darkkhaki", high="brown", name = "Year")+
+  ylab("Fertility Rate")+
+  xlab("Mean Number Years in School")
+```
+
+Looking at the scatter plot and the smooth line added, we can observe the nearly linear negative relationship between the two values. 
+
+#### Difference between 1970 and 2009
+Let's plot the differences in this relationship between the years of 1970 and 2009, and separate it by continent, as that evolution is different between them.
+```{r}
+ggplot(aes(y = total.fertility, x = mean.num.years), 
+       data =  subset(sy.tf.indicator, !is.na(total.fertility) & year %in% c(1970,2009))) +
+  geom_point(aes(color = continent)) +
+  facet_wrap(~year) +
+  ylab("Fertility Rate") +
+  xlab("Mean Number Years in School")
+```
+
+#### Discrete Fertility Rate 
+Here the values for fertility rate are transformed and distributed into buckets/intervals of 1 unit. We use the year to color the scatter plot.  
+For this plot there is also a change in the axis, so that fertility rate is now in the x axis.
+
+```{r}
+ggplot(aes(x = as.factor(round(total.fertility)), y = mean.num.years), 
+       data =  subset(sy.tf.indicator, !is.na(total.fertility))) +
+  geom_point(aes(color = year.as.numeric), position = position_jitter()) +
+  scale_color_gradient(low="darkkhaki", high="darkgreen", name="Year") +
+  xlab("Fertility Rate Interval")+
+  ylab("Mean Number Years in School")
+```
+
+#### Correlation
+The Pearson's correlation value between the two variables.
+```{r}
+cor.test(sy.tf.indicator$mean.num.years, sy.tf.indicator$total.fertility)
+```
+
+The value is appoximatly -0.86 which indicates a strong negative relationship.
+
+#### Highest Mean Number of Years in School And Lowest Mean Fertility Rate
+
+Looking at the values for each region in the world, we can also observe that the regions with the highest values for mean number of years spend in school are also among the regions with the lowest mean values for fertility rate.
+
+Regions with highest mean number of years in school:
+```{r}
+sy.tf.indicator %>%
+  group_by(region) %>%
+  summarise(mean.school = mean(mean.num.years), mean.fertility = mean(total.fertility)) %>%
+  arrange(desc(mean.school)) %>%
+  head(8)
+```
+
+Regions with lowest mean fertility rate:
+```{r}
+sy.tf.indicator %>%
+  group_by(region) %>%
+  summarise(mean.school = mean(mean.num.years), mean.fertility = mean(total.fertility)) %>%
+  arrange(mean.fertility) %>%
+  head(8)
+```
+
+***
+## Conclusion
+With this study we were able to observe:
+
+1. The fertility rate value and its evolution in time, as well, as its differences between continents.
+2. The mean number of years in school values and evolution in the different decades and continents.
+3. The fertility rate vs. mean number of years in school relationship, as well as its evolution through the years. We also determined that this relationship has a correlation value of -0.86 and it can be roughly represented by a linear negative model.
+
+***
+Sara Carvalho
+12-03-2015
