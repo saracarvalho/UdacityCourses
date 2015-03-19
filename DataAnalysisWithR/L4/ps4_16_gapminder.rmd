@@ -1,9 +1,9 @@
-Problem Set 3 - Gapminder
+Problem Set 4 - Gapminder
 ========================================================
 
 ## Introduction
 
-This assignment is part of problem set 4 of the "Data Analysis with R" Udacity course's lesson 4: "Explore Two Variable".  
+This assignment is part of problem set 4 of the *Data Analysis with R* Udacity course's lesson 4: *Explore Two Variable*.  
 The task is to go back to the Gapminder dataset used in problem set 3 and study it with tools from lesson 4.
 
 ### The Dataset
