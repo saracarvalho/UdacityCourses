@@ -1,0 +1,135 @@
+Problem Set 5
+========================================================
+
+This assignment is the first part of problem set 5 of the Udacity course *Data Analysis with R* lesson 5: *Explore Many Variables*. This part of the problem set consists in a set of questions/tasks answered below.
+
+### Diamonds
+Load the diamonds dataset
+
+```{r}
+suppressMessages(library(ggplot2))
+data(diamonds)
+str(diamonds)
+```
+
+***
+
+### Price Histograms with Facet and Color
+Create a histogram of diamond prices. Facet the histogram by diamond color and use cut to color the histogram bars.
+```{r fig.width=10, fig.height=10}
+ggplot(aes(x = price), data = diamonds) +
+  geom_histogram(binwidth = 200, aes(fill = cut)) +
+  facet_wrap(~color)
+
+## scales = free_y
+ggplot(aes(x = price), data = diamonds) +
+  geom_histogram(binwidth = 200, aes(fill = cut)) +
+  facet_wrap(~color, scales = "free_y")
+```
+
+***
+
+### Price vs. Table Colored by Cut
+Create a scatterplot of diamond price vs. table (width of top of diamond relative to widest point) and color the points by the cut of the diamond.
+```{r}
+ggplot(aes(x = table, y = price), data = diamonds) +
+  geom_point(aes(color = cut)) +
+  coord_cartesian(xlim = c(50,80))
+```
+
+#### What is the typical table range for the majority of diamonds of **ideal** cut?
+53-57
+
+#### What is the typical table range for the majority of diamonds of **premium** cut?
+58-63
+
+***
+
+### Price vs. Volume and Diamond Clarity
+Create a scatterplot of diamond price vs. volume (x * y * z) and color the points by the clarity of diamonds. Use scale on the y-axis to take the log10 of price. You should also omit the top 1% of diamond volumes from the plot.  
+Note: Volume is a very rough approximation of a diamond's actual volume.
+
+```{r}
+diamonds$volume <- diamonds$x * diamonds$y * diamonds$z
+ggplot(aes(x = volume, y = price), data = subset(diamonds, volume > 0 & volume < quantile(diamonds$volume, .99))) +
+  geom_point(aes(color = clarity)) +
+  scale_y_log10()
+```
+
+***
+
+###  Proportion of Friendships Initiated
+
+#### Load Pseudo Facebook Friends Dataset
+```{r}
+pf <- read.csv('pseudo_facebook.tsv', sep = '\t')
+```
+
+#### Add new var, proportion of friendships initiated
+```{r}
+pf$prop_initiated <- pf$friendships_initiated / pf$friend_count
+```
+
+### prop_initiated vs. tenure
+Create a line graph of the median proportion of friendships initiated ('*prop_initiated*') vs. *tenure* and color the line segment by *year_joined.bucket*.
+
+From lesson 5, add var *year_joined* and *year_joined.bucket* to the dataset. The vars represent the year the user joined Facebook and the interval of years, respectively.
+```{r}
+pf$year_joined <- 2014 - ceiling(pf$tenure / 365)
+table(pf$year_joined)
+
+pf$year_joined.bucket <- cut(pf$year_joined, breaks=c(2004,2009,2011,2012,2014))
+table(pf$year_joined.bucket)
+
+ggplot(aes(x = tenure, y = prop_initiated), data = subset(pf, !is.na(prop_initiated))) +
+  geom_line(stat = "summary", fun.y = median, aes(color = year_joined.bucket))
+```
+
+***
+
+### Smoothing prop_initiated vs. tenure
+You can use larger bins for tenure or add a smoother to the plot.
+```{r}
+## larger bins
+ggplot(aes(x = 30 * round(tenure / 30), y = prop_initiated), data = subset(pf, !is.na(prop_initiated))) +
+  geom_line(stat = "summary", fun.y = median, aes(color = year_joined.bucket))
+
+## smoother
+ggplot(aes(x = tenure, y = prop_initiated), data = subset(pf, !is.na(prop_initiated))) +
+  geom_smooth(aes(color = year_joined.bucket))
+```
+
+#### Which group has the highest proportion of friendships initiated ?
+Group [2012-2014]
+
+#### For this group, what is the average(mean) proportion of friendships initiated?
+0.67
+```{r}
+suppressMessages(library(dplyr))
+pf %>%
+  filter(!is.na(prop_initiated)) %>%
+  group_by(year_joined.bucket) %>%
+  summarise(mean = mean(prop_initiated))
+```
+
+
+#### Why do you think this happens?
+I think users that have just joined Facebook are going to be more interested in looking for friends for several reasons: 
+
+1. Fewer friends, since they have have joined just recently.
+2. People they already know, already on Facebook.
+3. New users are more engaged
+
+***
+
+### Price/Carat Binned, Faceted, & Colored
+Back to the diamonds dataset. Create a scatter plot of the price/carat ratio of diamonds. The variable x should be assigned to cut. The points should be colored by diamond color, and the plot should be faceted by clarity.
+```{r fig.width=10, fig.height=10}
+ggplot(aes(x = cut, y = price/carat), data = diamonds) +
+  geom_point(aes(color = color), position= position_jitter()) +
+  facet_wrap(~clarity)
+```
+
+***
+Sara Carvalho  
+10-03-2015
